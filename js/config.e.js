@@ -90,7 +90,7 @@ const defaults = {
 			{ hsl: [0.0, 1.0, 0.4], at: 0.4 },
 			{ hsl: [0.1, 1.0, 0.7], at: 0.7 },
 			{ hsl: [0.2, 1.0, 1.0], at: 1.0 },
-	],
+		],
 	raindropLength: 1, // Adjusts the frequency of raindrops (and their length) in a column
 	slant: 0, // The angle at which rain falls; the orientation of the glyph grid
 	resolution: 0.75, // An overall scale multiplier
@@ -101,6 +101,17 @@ const defaults = {
 };
 
 const versions = {
+	scyne: {
+		hasThunder: false, // An effect that adds dramatic lightning flashes
+		rippleTypeName: null, // The variety of the ripple effect
+		paletteEntries: [
+			// The color palette that glyph brightness is color mapped to
+			{ hsl: [0.3, 0.9, 0.0], at: 0.0 },
+			{ hsl: [0.3, 0.9, 0.2], at: 0.2 },
+			{ hsl: [0.3, 0.9, 0.7], at: 0.7 },
+			{ hsl: [0.3, 0.9, 0.8], at: 0.8 },
+			],
+	},
 	classic: {},
 	megacity: {
 		font: "megacity",
