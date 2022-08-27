@@ -1,4 +1,4 @@
-import makeConfig from "./config.js";
+import makeConfig from "./errorconf.js";
 
 const canvas = document.createElement("canvas");
 document.body.appendChild(canvas);
@@ -14,6 +14,6 @@ document.body.onload = async () => {
 	const urlParams = Object.fromEntries(new URLSearchParams(window.location.search).entries());
 	const config = makeConfig(urlParams);
 	const useREGL = !(await supportsWebGPU()) || ["webgl", "regl"].includes(config.renderer?.toLowerCase());
-	const solution = import(`./${useREGL ? "regl" : "webgpu"}/main.js`);
+	const solution = import(`./${useREGL ? "regl" : "webgpu"}/error.js`);
 	(await solution).default(canvas, config);
 };
