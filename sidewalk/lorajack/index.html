@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LoRA-jack</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg:           #00000C;
+            --navy:         #000099;
+            --electric:     #0400f5;
+            --slate:        #8693AB;
+            --white:        #FFFFFF;
+            --panel:        rgba(0, 0, 153, 0.18);
+            --panel-border: rgba(4, 0, 245, 0.3);
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background-color: var(--bg);
+            color: var(--white);
+            min-height: 100vh;
+            padding: 24px;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: -20%; left: -10%;
+            width: 60%; height: 60%;
+            background: radial-gradient(ellipse, rgba(4,0,245,0.12) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ── HEADER ── */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 28px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(4,0,245,0.25);
+        }
+
+        .header-left h1 {
+            font-family: 'Space Mono', monospace;
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            color: var(--white);
+            text-transform: uppercase;
+        }
+
+        .header-left .subtitle {
+            font-size: 12px;
+            color: var(--slate);
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            margin-top: 4px;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .last-updated {
+            font-family: 'Space Mono', monospace;
+            font-size: 11px;
+            color: var(--slate);
+            letter-spacing: 0.04em;
+        }
+
+        .btn {
+            font-family: 'Space Mono', monospace;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 9px 18px;
+            border-radius: 2px;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--electric);
+            color: var(--white);
+        }
+        .btn-primary:hover { background: #2d2af7; }
+        .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--slate);
+            border: 1px solid rgba(134,147,171,0.35);
+        }
+        .btn-ghost:hover { border-color: var(--electric); color: var(--white); }
+
+        /* ── STATS GRID ── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 900px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 480px) { .stats-grid { grid-template-columns: 1fr; } }
+
+        .stat-card {
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            border-radius: 4px;
+            padding: 20px 24px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--electric), transparent);
+        }
+
+        .stat-card h3 {
+            font-family: 'Space Mono', monospace;
+            font-size: 10px;
+            font-weight: 400;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--slate);
+            margin-bottom: 10px;
+        }
+
+        .stat-value {
+            font-family: 'Space Mono', monospace;
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--white);
+            line-height: 1;
+        }
+
+        .stat-value.connected    { color: #4df0c0; }
+        .stat-value.disconnected { color: #f04d6e; }
+
+        .stat-sub { font-size: 11px; color: var(--slate); margin-top: 6px; }
+
+        .coord-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px;
+            margin-top: 8px;
+        }
+        .coord-item  { font-family: 'Space Mono', monospace; font-size: 11px; }
+        .coord-label { color: var(--slate); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; }
+
+        /* ── MAP ── */
+        #map {
+            height: 440px;
+            width: 100%;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border: 1px solid var(--panel-border);
+            z-index: 1;
+            position: relative;
+        }
+
+        .leaflet-popup-content-wrapper {
+            background: #000099;
+            border: 1px solid var(--electric);
+            border-radius: 2px;
+            color: var(--white);
+            box-shadow: 0 4px 24px rgba(4,0,245,0.35);
+        }
+        .leaflet-popup-tip { background: #000099; }
+        .leaflet-popup-content { font-family: 'Space Mono', monospace; font-size: 11px; line-height: 1.7; }
+        .popup-label { color: var(--slate); font-size: 10px; }
+
+        /* ── MAP LEGEND ── */
+        .map-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .legend { display: flex; gap: 20px; }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 11px;
+            color: var(--slate);
+        }
+
+        .legend-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .legend-dot.newest  { background: #FFFFFF; box-shadow: 0 0 8px #FFFFFF; }
+        .legend-dot.recent  { background: var(--electric); }
+        .legend-dot.history { background: var(--slate); opacity: 0.5; }
+
+        /* ── MODAL ── */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,12,0.85);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 24px;
+        }
+        .modal-overlay.open { display: flex; }
+
+        .modal {
+            background: #000018;
+            border: 1px solid var(--panel-border);
+            border-radius: 4px;
+            width: 100%;
+            max-width: 900px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 80px rgba(4,0,245,0.2);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--panel-border);
+            flex-shrink: 0;
+        }
+
+        .modal-header h2 {
+            font-family: 'Space Mono', monospace;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--slate);
+            font-size: 20px;
+            cursor: pointer;
+            line-height: 1;
+            transition: color 0.2s;
+        }
+        .modal-close:hover { color: var(--white); }
+
+        .modal-body {
+            overflow-y: auto;
+            flex: 1;
+            padding: 0 24px 24px;
+        }
+
+        /* ── TABLE ── */
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        thead { position: sticky; top: 0; background: #000018; z-index: 10; }
+
+        th {
+            font-family: 'Space Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--electric);
+            padding: 14px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--panel-border);
+        }
+
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid rgba(4,0,245,0.1);
+            color: var(--slate);
+            font-family: 'Space Mono', monospace;
+            font-size: 11px;
+        }
+
+        tr.newest-row td { color: var(--white); background: rgba(255,255,255,0.05); }
+        tr:hover td { background: rgba(4,0,245,0.06); color: var(--white); }
+
+        .snr-badge {
+            display: inline-block;
+            padding: 2px 7px;
+            border-radius: 2px;
+            font-size: 10px;
+        }
+        .snr-good { background: rgba(77,240,192,0.15); color: #4df0c0; }
+        .snr-ok   { background: rgba(4,0,245,0.2);     color: #8693AB; }
+        .snr-weak { background: rgba(240,77,110,0.15); color: #f04d6e; }
+
+        .no-gps { color: rgba(134,147,171,0.4); font-style: italic; }
+        .newest-tag {
+            font-size: 9px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            background: var(--white);
+            color: var(--bg);
+            padding: 1px 5px;
+            border-radius: 2px;
+            margin-left: 6px;
+            vertical-align: middle;
+        }
+
+        .modal-body::-webkit-scrollbar { width: 4px; }
+        .modal-body::-webkit-scrollbar-track { background: transparent; }
+        .modal-body::-webkit-scrollbar-thumb { background: var(--navy); border-radius: 2px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <header>
+        <div class="header-left">
+            <h1>LoRA-jack</h1>
+            <div class="subtitle">LoRa-LDR · Signal Telemetry Dashboard</div>
+        </div>
+        <div class="header-right">
+            <span class="last-updated" id="lastUpdatedText">—</span>
+            <button class="btn btn-ghost" onclick="openModal()">View History</button>
+            <button class="btn btn-primary" id="refreshBtn" onclick="fetchData()">Refresh</button>
+        </div>
+    </header>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <h3>Connection Status</h3>
+            <div class="stat-value" id="statusVal">—</div>
+            <div class="stat-sub" id="statusSub">Awaiting data</div>
+        </div>
+        <div class="stat-card">
+            <h3>Latest SNR</h3>
+            <div class="stat-value" id="snrVal">—</div>
+            <div class="stat-sub">Signal-to-noise ratio (dB)</div>
+        </div>
+        <div class="stat-card">
+            <h3>Most Recent Position</h3>
+            <div class="coord-grid">
+                <div>
+                    <div class="coord-label">Lat</div>
+                    <div class="coord-item" id="latVal">—</div>
+                </div>
+                <div>
+                    <div class="coord-label">Lon</div>
+                    <div class="coord-item" id="lonVal">—</div>
+                </div>
+            </div>
+            <div class="stat-sub" id="posSub">—</div>
+        </div>
+        <div class="stat-card">
+            <h3>Total Pings (48hrs)</h3>
+            <div class="stat-value" id="totalVal">—</div>
+            <div class="stat-sub" id="gpsSubVal">— with GPS fix</div>
+        </div>
+    </div>
+
+    <div id="map"></div>
+
+    <div class="map-footer">
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-dot newest"></div>
+                Most Recent Ping
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot recent"></div>
+                Last 30 Minutes
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot history"></div>
+                Historical Trail
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- History Modal -->
+<div class="modal-overlay" id="historyModal" onclick="closeModalOutside(event)">
+    <div class="modal">
+        <div class="modal-header">
+            <h2>Ping History</h2>
+            <button class="modal-close" onclick="closeModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Timestamp (Local)</th>
+                        <th>Protocol</th>
+                        <th>Type</th>
+                        <th>SNR</th>
+                        <th>Latitude</th>
+                        <th>Longitude</th>
+                        <th>GPS Acc.</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <tr><td colspan="7" style="text-align:center;color:var(--slate)">Loading…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    const N8N_WEBHOOK_URL = "https://n8n.hive.scyne.com/webhook/sidewalk-telemetry";
+
+    const THIRTY_MIN_MS = 30 * 60 * 1000;
+
+    // ── Map init ──────────────────────────────────────────────────
+    const map = L.map('map').setView([31.5649, -84.0925], 15);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap &copy; CARTO',
+        subdomains: 'abcd',
+        maxZoom: 20
+    }).addTo(map);
+
+    let allMapLayers = [];
+
+    function clearMap() {
+        allMapLayers.forEach(l => map.removeLayer(l));
+        allMapLayers = [];
+    }
+
+    // ── Draw markers ──────────────────────────────────────────────
+    function drawMarkers(pings) {
+        clearMap();
+        const now = Date.now();
+        const latLngs = [];
+
+        // Find index of the single most-recent ping that has GPS
+        const newestGpsIdx = pings.findIndex(p => p.latitude != null && p.longitude != null);
+
+        pings.forEach((ping, idx) => {
+            if (!ping.latitude || !ping.longitude) return;
+
+            const age      = now - new Date(ping.timestamp).getTime();
+            const isNewest = idx === newestGpsIdx;
+            const isRecent = age < THIRTY_MIN_MS;
+
+            let color, radius, fillOpacity, weight, zOffset;
+
+            if (isNewest) {
+                // Most recent ping — bright white, largest
+                color       = '#FFFFFF';
+                radius      = 9;
+                fillOpacity = 1;
+                weight      = 2;
+                zOffset     = 1000;
+            } else if (isRecent) {
+                // Last 30 min — electric blue
+                color       = '#0400f5';
+                radius      = 5;
+                fillOpacity = 0.85;
+                weight      = 1;
+                zOffset     = 500;
+            } else {
+                // Older — muted slate trail
+                color       = '#8693AB';
+                radius      = 3;
+                fillOpacity = 0.35;
+                weight      = 1;
+                zOffset     = 0;
+            }
+
+            const circle = L.circleMarker([ping.latitude, ping.longitude], {
+                color,
+                fillColor:   color,
+                fillOpacity,
+                opacity:     fillOpacity,
+                radius,
+                weight,
+                zIndexOffset: zOffset
+            });
+
+            const d        = new Date(ping.timestamp);
+            const snrCls   = (ping.snr >= -10) ? 'snr-good' : (ping.snr >= -15) ? 'snr-ok' : 'snr-weak';
+            const newestLbl = isNewest ? '<br><b style="color:#fff">← Most Recent</b>' : '';
+            circle.bindPopup(`
+                <span class="popup-label">Time</span><br>${d.toLocaleString()}${newestLbl}<br>
+                <span class="popup-label">SNR</span><br><span class="${snrCls}">${ping.snr ?? 'N/A'} dB</span><br>
+                <span class="popup-label">GPS Acc</span><br>${ping.gpsAccuracy != null ? ping.gpsAccuracy + 'm' : '—'}
+            `);
+
+            circle.addTo(map);
+            allMapLayers.push(circle);
+            latLngs.push([ping.latitude, ping.longitude]);
+        });
+
+        // Add pulsing glow ring around the newest ping
+        if (newestGpsIdx !== -1) {
+            const np = pings[newestGpsIdx];
+            const pulseIcon = L.divIcon({
+                className: '',
+                iconSize:  [40, 40],
+                iconAnchor:[20, 20],
+                html: `<div style="
+                    width:40px;height:40px;border-radius:50%;
+                    border:1.5px solid rgba(255,255,255,0.6);
+                    animation:pulseRing 2s ease-out infinite;
+                "></div>
+                <style>
+                  @keyframes pulseRing {
+                    0%   { transform:scale(0.6); opacity:0.9; }
+                    100% { transform:scale(1.6); opacity:0; }
+                  }
+                </style>`
+            });
+            const pulse = L.marker([np.latitude, np.longitude], { icon: pulseIcon, zIndexOffset: 900 });
+            pulse.addTo(map);
+            allMapLayers.push(pulse);
+
+            // Center and zoom on latest ping
+            map.flyTo([np.latitude, np.longitude], 18, { animate: true, duration: 1.2 });
+        } else if (latLngs.length > 0) {
+            map.fitBounds(L.latLngBounds(latLngs), { padding: [40, 40] });
+        }
+    }
+
+    // ── Dashboard Update ──────────────────────────────────────────
+    function updateDashboard(data) {
+        const d = new Date(data.lastUpdated);
+        document.getElementById('lastUpdatedText').textContent = `Updated ${d.toLocaleTimeString()}`;
+
+        // Status
+        const st = data.summary.status || 'unknown';
+        const statusEl = document.getElementById('statusVal');
+        statusEl.textContent = st.toUpperCase();
+        statusEl.className   = 'stat-value ' + st;
+        document.getElementById('statusSub').textContent =
+            st === 'connected' ? 'Device is online' : 'No recent signal';
+
+        // SNR
+        const snr = data.summary.latestSnr;
+        document.getElementById('snrVal').textContent = snr != null ? `${snr} dB` : 'N/A';
+
+        // Counts
+        const pings   = data.recentPings || [];
+        const withGps = pings.filter(p => p.latitude != null);
+        document.getElementById('totalVal').textContent  = pings.length;
+        document.getElementById('gpsSubVal').textContent = `${withGps.length} with GPS fix`;
+
+        // Most recent GPS position
+        const newest = pings.find(p => p.latitude != null && p.longitude != null);
+        if (newest) {
+            document.getElementById('latVal').textContent = newest.latitude.toFixed(6);
+            document.getElementById('lonVal').textContent = newest.longitude.toFixed(6);
+            const dt = new Date(newest.timestamp);
+            document.getElementById('posSub').textContent =
+                `${dt.toLocaleTimeString()} · ±${newest.gpsAccuracy ?? '?'}m`;
+        } else {
+            document.getElementById('latVal').textContent = '—';
+            document.getElementById('lonVal').textContent = '—';
+            document.getElementById('posSub').textContent = 'No GPS fix';
+        }
+
+        // Map
+        drawMarkers(pings);
+
+        // Table
+        const tbody = document.getElementById('tableBody');
+        tbody.innerHTML = '';
+        pings.forEach((ping, idx) => {
+            const dt      = new Date(ping.timestamp);
+            const snrVal  = ping.snr ?? 'N/A';
+            const cls     = (snrVal >= -10) ? 'snr-good' : (snrVal >= -15) ? 'snr-ok' : 'snr-weak';
+            const isFirst = idx === pings.findIndex(p => p.latitude != null && p.longitude != null);
+            const rowCls  = isFirst ? 'newest-row' : '';
+            const tag     = isFirst ? '<span class="newest-tag">latest</span>' : '';
+            tbody.innerHTML += `<tr class="${rowCls}">
+                <td>${dt.toLocaleDateString()} ${dt.toLocaleTimeString()}${tag}</td>
+                <td>${ping.protocol ?? '—'}</td>
+                <td>${ping.messageType ?? '<span class="no-gps">gateway</span>'}</td>
+                <td><span class="snr-badge ${cls}">${snrVal}${typeof snrVal === 'number' ? ' dB' : ''}</span></td>
+                <td>${ping.latitude  != null ? ping.latitude.toFixed(6)  : '<span class="no-gps">—</span>'}</td>
+                <td>${ping.longitude != null ? ping.longitude.toFixed(6) : '<span class="no-gps">—</span>'}</td>
+                <td>${ping.gpsAccuracy != null ? ping.gpsAccuracy + 'm' : '<span class="no-gps">—</span>'}</td>
+            </tr>`;
+        });
+    }
+
+    // ── Fetch ─────────────────────────────────────────────────────
+    async function fetchData() {
+        const btn = document.getElementById('refreshBtn');
+        btn.disabled    = true;
+        btn.textContent = 'Loading…';
+        try {
+            const res = await fetch(`${N8N_WEBHOOK_URL}?t=${Date.now()}`);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            updateDashboard(await res.json());
+        } catch (err) {
+            console.error(err);
+            document.getElementById('lastUpdatedText').textContent = 'Fetch error – check console';
+            document.getElementById('statusVal').textContent = 'ERROR';
+            document.getElementById('statusVal').className  = 'stat-value disconnected';
+        } finally {
+            btn.disabled    = false;
+            btn.textContent = 'Refresh';
+        }
+    }
+
+    // ── Modal ─────────────────────────────────────────────────────
+    function openModal()  { document.getElementById('historyModal').classList.add('open'); }
+    function closeModal() { document.getElementById('historyModal').classList.remove('open'); }
+    function closeModalOutside(e) {
+        if (e.target === document.getElementById('historyModal')) closeModal();
+    }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+    fetchData();
+</script>
+</body>
+</html>
