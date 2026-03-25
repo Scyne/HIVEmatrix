@@ -1,106 +1,94 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
 	<head>
 		<title>root@HIVE</title>
 		<meta name="robots" content="noindex">
 		<meta charset="utf-8" />
-		<meta name="apple-mobile-web-app-capable" content="yes" />
-		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
 		<style>
-			@supports (padding-top: env(safe-area-inset-top)) {
-				body {
-					padding: 0;
-					height: calc(100% + env(safe-area-inset-top));
-				}
-			}
 			body {
 				background: black;
 				overflow: hidden;
 				margin: 0;
-
-				font-family: monospace;
-				font-size: 2em;
-				text-align: center;
 			}
-
 			canvas {
 				width: 100vw;
 				height: 100vh;
 			}
-
-			p {
-				color: hsl(108, 90%, 70%);
-				text-shadow: hsl(108, 90%, 40%) 1px 0 10px;
-			}
-
-			.notice {
-				margin-top: 10em;
-				animation: fadeInAnimation ease 3s;
-				animation-iteration-count: 1;
-				animation-fill-mode: forwards;
-			}
-
-			@keyframes fadeInAnimation {
-				0% {
-					opacity: 0;
-				}
-				100% {
-					opacity: 1;
-				}
-			}
-
-			.pill {
-				display: inline-block;
-				background: gray;
-				border: 0.3em solid lightgray;
-				font-size: 1rem;
-				font-family: monospace;
-				color: white;
-				padding: 0.5em 1em;
-				border-radius: 2em;
-				min-width: 6rem;
-				margin: 3em;
-				text-decoration: none;
-				cursor: pointer;
+			#status {
+				position: fixed;
+				bottom: 18px;
+				right: 18px;
+				font-family: "Courier New", Courier, monospace;
+				font-size: 11px;
+				color: hsl(252, 100%, 80%);
+				background: rgba(0, 0, 0, 0.55);
+				border: 1px solid hsl(252, 100%, 25%);
+				padding: 5px 10px;
+				letter-spacing: 0.12em;
 				text-transform: uppercase;
-				font-weight: bold;
+				display: flex;
+				align-items: center;
+				gap: 7px;
+				pointer-events: none;
+				user-select: none;
 			}
-
-			.blue {
-				background: linear-gradient(skyblue, blue, black, black, darkblue);
-				border-color: darkblue;
-				color: lightblue;
+			#status::before {
+				content: "";
+				display: inline-block;
+				width: 7px;
+				height: 7px;
+				border-radius: 50%;
+				background: hsl(252, 100%, 70%);
+				box-shadow: 0 0 6px 2px hsl(252, 100%, 60%);
+				animation: pulse 2s ease-in-out infinite;
 			}
-
-			.blue:hover {
-				border-color: blue;
-				color: white;
-			}
-
-			.red {
-				background: linear-gradient(lightpink, crimson, black, black, darkred);
-				border-color: darkred;
-				color: lightpink;
-			}
-
-			.red:hover {
-				border-color: crimson;
-				color: white;
+			@keyframes pulse {
+				0%, 100% { opacity: 1; }
+				50%       { opacity: 0.3; }
 			}
 		</style>
 	</head>
 	<body>
 		<!--
-			YO!
-			
+			YO! Scyne Here!
+
 			This is my backend server for several things. If you want to know what I'm up to
 			just head on over to scyne.com or message me on discord (@scyne).
 			
 			Oh, and if you are digging into my support skills, bustin' bugs makes me feel good.
 			
 			https://youtu.be/0tdyU_gW6WE
-		 -->
+		-->
+		<div id="status">HIVE Online</div>
+		
+		<script>
+			async function updateUptime() {
+				const statusElement = document.getElementById('status');
+				const webhookUrl = 'https://n8n.hive.scyne.com/webhook/server-uptime';
+
+				try {
+					const response = await fetch(webhookUrl);
+					if (!response.ok) throw new Error('Network response was not ok');
+					
+					const data = await response.json();
+					
+					if (data.status === "ok" && data.uptime && data.uptime.human_readable) {
+						statusElement.textContent = `HIVE Online // UP: ${data.uptime.human_readable}`;
+					}
+				} catch (error) {
+					console.error('Failed to fetch uptime:', error);
+					// Fallback to original text if fetch fails
+					statusElement.textContent = 'HIVE Online';
+				}
+			}
+
+			// Run on load
+			updateUptime();
+			// Refresh every 60 seconds to keep the minutes current
+			setInterval(updateUptime, 60000);
+		</script>
+
 		<script type="module" src="js/main.js"></script>
 	</body>
 </html>
